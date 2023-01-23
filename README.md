@@ -156,7 +156,13 @@ No known bugs at this time.
 ## Authors
 Alexa Orrico - [Github](https://github.com/alexaorrico) / [Twitter](https://twitter.com/alexa_orrico)  
 Jennifer Huang - [Github](https://github.com/jhuang10123) / [Twitter](https://twitter.com/earthtojhuang)
+<<<<<<< HEAD
 Azeezat Maja [Github](https://github.com/zeezatcoder) / [Twitter](https://twitter.com/zeemaja) Francis Gichuhi [Github](https://github.com/frank-gich)
+=======
+Azeezat Maja [Github](https://github.com/zeezatcoder) Francis Gichuhi [Github](https://github.com/frank-gich)
+=======
+
+>>>>>>> storage_get_count
 Second part of Airbnb: Joann Vuong
 ## License
 Public Domain. No copy write protection. 
