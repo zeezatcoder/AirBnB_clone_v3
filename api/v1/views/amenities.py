@@ -1,97 +1,111 @@
 #!/usr/bin/python3
-
-""" objects that handles all default RestFul API actions for Amenities
-"""
-
-from models.amenity import Amenity
-from models import storage
+"""Module containing views for Amenity objects """
 from api.v1.views import app_views
-from flask import abort, jsonify, make_response, request
-from flasgger.utils import swag_from
+from flask import jsonify, abort, request
+from models import storage
+from models.amenity import Amenity
 
 
 @app_views.route('/amenities', methods=['GET'], strict_slashes=False)
-@swag_from('documentation/amenity/all_amenities.yml')
 def get_amenities():
     """
-    Retrieves a list of all amenities
+    Retrieves the list of all Amenity objects
+
+    Returns:
+        A list of dictionaries representing Amenity Objects in JSON format.
     """
-    all_amenities = storage.all(Amenity).values()
-    list_amenities = []
-    for amenity in all_amenities:
-        list_amenities.append(amenity.to_dict())
-    return jsonify(list_amenities)
+    amenities = []
+    for amenity in storage.all("Amenity").values():
+        amenities.append(amenity.to_dict())
+    return jsonify(amenities)
 
 
-@app_views.route('/amenities/<amenity_id>/', methods=['GET'],
+@app_views.route('/amenities/<string:amenity_id>', methods=['GET'],
                  strict_slashes=False)
-@swag_from('documentation/amenity/get_amenity.yml', methods=['GET'])
-def get_amenity(amenity_id):
-    """ Retrieves an amenity """
-    amenity = storage.get(Amenity, amenity_id)
-    if not amenity:
+def get_amenity_by_id(amenity_id=None):
+    """ Retrieves a amenity object by amenity_id
+
+        Args:
+            amenity_id (str): The UUID4 string representing a Amenity object.
+
+        Returns:
+            A amenity object in JSON format.
+            Raise 404 error if no match for amenity_id is found.
+    """
+    if amenity_id:
+        for amenity in storage.all("Amenity").values():
+            if amenity.id == amenity_id:
+                return jsonify(amenity.to_dict())
         abort(404)
 
-    return jsonify(amenity.to_dict())
 
-
-@app_views.route('/amenities/<amenity_id>', methods=['DELETE'],
+@app_views.route('/amenities/<string:amenity_id>', methods=['DELETE'],
                  strict_slashes=False)
-@swag_from('documentation/amenity/delete_amenity.yml', methods=['DELETE'])
-def delete_amenity(amenity_id):
-    """
-    Deletes an amenity  Object
-    """
+def delete_amenity_by_id(amenity_id=None):
+    """ Deletes a amenity object by amenity_id
 
-    amenity = storage.get(Amenity, amenity_id)
+        Args:
+            amenity_id (str): The UUID4 string representing a Amenity object.
 
-    if not amenity:
+        Returns:
+            An empty dictionary with the status code 200.
+            Raise 404 error if no match for amenity_id is found.
+    """
+    amenity_obj = storage.get("Amenity", amenity_id)
+    if amenity_obj is None:
         abort(404)
-
-    storage.delete(amenity)
+    amenity_obj.delete()
     storage.save()
-
-    return make_response(jsonify({}), 200)
+    return jsonify({}), 200
 
 
 @app_views.route('/amenities', methods=['POST'], strict_slashes=False)
-@swag_from('documentation/amenity/post_amenity.yml', methods=['POST'])
-def post_amenity():
+def create_amenity():
+    """ Creates a amenity object
+
+        Returns:
+            A dictionary of the amenity object with status code 201.
+            If HTTP body request is not valid JSON, raise a 400 error with the
+                message "Not a JSON".
+            If dictionary doesn't contain the key name, raise a 400 error with
+                message "Missing name".
     """
-    Creates an amenity
-    """
-    if not request.get_json():
-        abort(400, description="Not a JSON")
-
-    if 'name' not in request.get_json():
-        abort(400, description="Missing name")
-
-    data = request.get_json()
-    instance = Amenity(**data)
-    instance.save()
-    return make_response(jsonify(instance.to_dict()), 201)
+    if request.json is None:
+        return "Not a JSON", 400
+    fields = request.get_json()
+    if fields.get('name') is None:
+        return "Missing name", 400
+    new_amenity = Amenity(**fields)
+    new_amenity.save()
+    return jsonify(new_amenity.to_dict()), 201
 
 
-@app_views.route('/amenities/<amenity_id>', methods=['PUT'],
+@app_views.route('/amenities/<string:amenity_id>', methods=['PUT'],
                  strict_slashes=False)
-@swag_from('documentation/amenity/put_amenity.yml', methods=['PUT'])
-def put_amenity(amenity_id):
+def update_amenity(amenity_id=None):
+    """ Updates a amenity object by amenity_id
+
+        Args:
+            amenity_id (str): The UUID4 string representing a Amenity object.
+
+        Returns:
+            A amenity object in JSON format with the status code 200.
+            If no object with matching amenity_id is found,
+                404 error is raised.
+            If HTTP body request is not valid JSON, raise a 400 error with the
+                message "Not a JSON".
+            If dictionary doesn't contain the key name, raise a 400 error with
+                message "Missing name".
     """
-    Updates an amenity
-    """
-    if not request.get_json():
-        abort(400, description="Not a JSON")
-
-    ignore = ['id', 'created_at', 'updated_at']
-
-    amenity = storage.get(Amenity, amenity_id)
-
-     if not amenity:
-         abort(404)
-
-     data = request.get_json()
-     for key, value in data.items():
-         if key not in ignore:
-             setattr(amenity, key, value)
-     storage.save()
-     return make_response(jsonify(amenity.to_dict()), 200)
+    if request.json is None:
+        return "Not a JSON", 400
+    fields = request.get_json()
+    amenity_obj = storage.get("Amenity", amenity_id)
+    if amenity_obj is None:
+        abort(404)
+    for key in fields:
+        if key not in ['id', 'created_at', 'updated_at']:
+            if hasattr(amenity_obj, key):
+                setattr(amenity_obj, key, fields[key])
+    amenity_obj.save()
+    return jsonify(amenity_obj.to_dict()), 200

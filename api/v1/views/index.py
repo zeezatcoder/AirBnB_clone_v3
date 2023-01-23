@@ -1,36 +1,21 @@
 #!/usr/bin/python3
-'''Contains the index view for the API.'''
-from flask import jsonify
-
+""" Module containing views """
 from api.v1.views import app_views
+from flask import jsonify
 from models import storage
-from models.amenity import Amenity
-from models.city import City
-from models.place import Place
-from models.review import Review
-from models.state import State
-from models.user import User
 
 
-@app_views.route('/status')
-def get_status():
-    '''returns the status of the API.
-    '''
-    return jsonify(status='OK')
+@app_views.route("/status", strict_slashes=False)
+def status():
+    """ returns a JSON """
+    status = {"status": "OK"}
+    return jsonify(status)
 
 
-@app_views.route('/stats')
-def get_stats():
-    ''' an endpoint that retrieves the '''
-    '''number of each objects by type:'''
-    model_obj = {
-        'amenities': Amenity,
-        'cities': City,
-        'places': Place,
-        'reviews': Review,
-        'states': State,
-        'users': User
-    }
-    for key, val in model_obj.items():
-        model_obj[key] = storage.count(val)
-    return jsonify(model_obj)
+@app_views.route("/stats", strict_slashes=False)
+def stats():
+    """ retrieves the number of each objects by type """
+    class_dict = {"Amenity": "amenities", "City": "cities", "Place": "places",
+                  "Review": "reviews", "State": "states", "User": "users"}
+    objs = {class_dict[cls]: storage.count(cls) for cls in class_dict}
+    return jsonify(objs)

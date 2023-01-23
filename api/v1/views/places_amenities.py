@@ -1,95 +1,105 @@
 #!/usr/bin/python3
-""" objects that handle all default RestFul API actions for Place - Amenity """
-from models.place import Place
-from models.amenity import Amenity
-from models import storage
+""" Module containing Amenity View """
 from api.v1.views import app_views
-from os import environ
-from flask import abort, jsonify, make_response, request
-from flasgger.utils import swag_from
+from flask import jsonify, abort, request
+from models import storage, storage_t
+from models.amenity import Amenity
 
 
-@app_views.route('places/<place_id>/amenities', methods=['GET'],
-                         strict_slashes=False)
-@swag_from('documentation/place_amenity/get_places_amenities.yml',
-                   methods=['GET'])
+@app_views.route('/places/<string:place_id>/amenities', methods=['GET'],
+                 strict_slashes=False)
 def get_place_amenities(place_id):
-    """
-    Retrieves the list of all Amenity objects of a Place
-    """
-    place = storage.get(Place, place_id)
+    """ Retrieves the list of all Amenity objects associated with a Place
+        object.
 
-    if not place:
+    Args:
+        place_id (str): The UUID4 string representing a Place object.
+
+    Returns:
+        If retrieving from db storage, a list of dictionaries representing
+        Amenity objects in JSON format is returned.
+        If retrieving from file storage, a list of amenity ids in JSON format
+        is returned.
+        404 error if `place_id` is not linked to any Place object.
+    """
+    place_obj = storage.get("Place", place_id)
+    if place_obj is None:
         abort(404)
-
-    if environ.get('HBNB_TYPE_STORAGE') == "db":
-        amenities = [amenity.to_dict() for amenity in place.amenities]
+    if storage_t == 'db':
+        amenities = [amenity.to_dict() for amenity in place_obj.amenities]
     else:
-        amenities = [storage.get(Amenity, amenity_id).to_dict()
-                     for amenity_id in place.amenity_ids]
-
+        amenities = place_obj.amenity_ids
     return jsonify(amenities)
 
 
-@app_views.route('/places/<place_id>/amenities/<amenity_id>',
-                         methods=['DELETE'], strict_slashes=False)
-@swag_from('documentation/place_amenity/delete_place_amenities.yml',
-                   methods=['DELETE'])
-def delete_place_amenity(place_id, amenity_id):
+@app_views.route('/places/<string:place_id>/amenities/<string:amenity_id>',
+                 methods=['DELETE'], strict_slashes=False)
+def unlink_amenity(place_id, amenity_id):
+    """ Remove an Amenity object from a Place object.
+
+    Args:
+        place_id (str): The UUID4 string representing a Place object.
+        amenity_id (str): The UUID4 string representing a Amenity object.
+
+    Returns:
+        Returns an empty dictionary with the status code 200.
+        404 error if:
+            `place_id` is not linked to any Place object.
+            `amenity_id` is not linked to any Amenity object.
+            The Amenity object associated with `amenity_id` is not linked to
+            the Place object associated with `place_id`.
     """
-    Deletes a Amenity object of a Place
-    """
-    place = storage.get(Place, place_id)
-
-    if not place:
+    place_obj = storage.get("Place", place_id)
+    amenity_obj = storage.get("Amenity", amenity_id)
+    if None in [place_obj, amenity_obj]:
         abort(404)
-
-    amenity = storage.get(Amenity, amenity_id)
-
-    if not amenity:
-        abort(404)
-
-    if environ.get('HBNB_TYPE_STORAGE') == "db":
-        if amenity not in place.amenities:
+    if storage_t == 'db':
+        if amenity_obj not in place_obj.amenities:
             abort(404)
-        place.amenities.remove(amenity)
     else:
-        if amenity_id not in place.amenity_ids:
-            abort(404)      
-        place.amenity_ids.remove(amenity_id)
+        if amenity_obj.id not in place_obj.amenity_ids:
+            abort(404)
+    if storage_t == 'db':
+        place_obj.amenities.remove(amenity_obj)
+    else:
+        place_obj.amenity_ids.remove(amenity_obj.id)
 
     storage.save()
-    return make_response(jsonify({}), 200)
+    return jsonify({})
 
 
-@app_views.route('/places/<place_id>/amenities/<amenity_id>', methods=['POST'],
-                 strict_slashes=False)
-@swag_from('documentation/place_amenity/post_place_amenities.yml',
-           methods=['POST'])
-def post_place_amenity(place_id, amenity_id):
+@app_views.route('/places/<string:place_id>/amenities/<string:amenity_id>',
+                 methods=['POST'], strict_slashes=False)
+def link_amenity(place_id, amenity_id):
+    """ Links an Amenity object to a Place object.
+
+    Args:
+        place_id (str): The UUID4 string representing an existing Place object.
+        amenity_id (str): The UUID4 stirng representing an existing Amenity
+        object.
+
+    Returns:
+        Returns the Amenity object as a  dictionary in JSON format with the
+        status code 201.
+        404 error if:
+            `place_id` is not linked to any Place object.
+            `amenity_id` is not linked to any Amenity object.
+        200 status if the Amenity object associated with `amenity_id` is
+        already linked to the Place object associated with `place_id`.
     """
-    Link a Amenity object to a Place
-    """
-    place = storage.get(Place, place_id)
-
-    if not place:
+    place_obj = storage.get("Place", place_id)
+    amenity_obj = storage.get("Amenity", amenity_id)
+    if None in [place_obj, amenity_obj]:
         abort(404)
-
-    amenity = storage.get(Amenity, amenity_id)
-
-    if not amenity:
-        abort(404)
-
-    if environ.get('HBNB_TYPE_STORAGE') == "db":
-        if amenity in place.amenities:
-            return make_response(jsonify(amenity.to_dict()), 200)
-        else:
-            place.amenities.append(amenity)
+    if storage_t == 'db':
+        if amenity_obj in place_obj.amenities:
+            return jsonify(amenity_obj.to_dict())
     else:
-        if amenity_id in place.amenity_ids:
-            return make_response(jsonify(amenity.to_dict()), 200)
-        else:
-            place.amenity_ids.append(amenity_id)
-
+        if amenity_obj.id in place_obj.amenity_ids:
+            return jsonify(amenity_obj.to_dict())
+    if storage_t == 'db':
+        place_obj.amenities.append(amenity_obj)
+    else:
+        place_obj.amenity_ids.append(amenity_obj.id)
     storage.save()
-    return make_response(jsonify(amenity.to_dict()), 201)
+    return jsonify(amenity_obj.to_dict()), 201
